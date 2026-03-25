@@ -15,7 +15,8 @@ reports as ``model_eval.ipynb`` when the Parquet schema allows it.
   in ``log.txt`` (no crash).
 
 All ``print`` output and captured tables go to ``log.txt``; each ``plt.show()`` becomes a
-PNG under ``data_output_path``.
+PNG under ``data_output_path``. After a successful run, ``generate_report.build_eval_pdf``
+writes a compact ``eval_report.pdf`` (see repo root ``generate_report.py``).
 
 Run from the repository root (editable install or ``PYTHONPATH``)::
 
@@ -597,6 +598,19 @@ def run_evaluation(
     finally:
         sys.stdout, sys.stderr = prev_stdout, prev_stderr
         log_f.close()
+
+    try:
+        from generate_report import build_eval_pdf
+
+        pdf_written = build_eval_pdf(out)
+        print(f"Wrote PDF report: {pdf_written}", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"Warning: could not build eval_report.pdf ({exc}). "
+            "CSV/PNG artifacts are still under the output directory.",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def main() -> None:
