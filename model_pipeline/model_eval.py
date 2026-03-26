@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Offline model evaluation mirroring ``model_eval.ipynb`` main evaluation cell.
 
-Depends on ``/data1/mex_reloan_data/code_/`` (``modelEvaluation``, ``modelEvaluation2``,
-``psiCalculation``) and the same Python stack as the notebook (pandas, sklearn, seaborn,
-matplotlib, plotnine, shap, etc.).
+Depends on ``<repo>/model_eval_metric/`` (``modelEvaluation``, ``modelEvaluation2``,
+``psiCalculation``), or on ``MODEL_EVAL_CODE_DIR`` when set. Same Python stack as the notebook
+(pandas, sklearn, seaborn, matplotlib, plotnine, shap, etc.).
 
 Scores ``eval_data_file`` with the LightGBM model at ``model_file``, then runs the same
 reports as ``model_eval.ipynb`` when the Parquet schema allows it.
@@ -15,13 +15,16 @@ reports as ``model_eval.ipynb`` when the Parquet schema allows it.
   in ``log.txt`` (no crash).
 
 All ``print`` output and captured tables go to ``log.txt``; each ``plt.show()`` becomes a
-PNG under ``data_output_path``. After a successful run, ``generate_report.build_eval_pdf``
-writes a compact ``eval_report.pdf`` (see repo root ``generate_report.py``).
+PNG under ``data_output_path``. The same stream, ``display()`` tables, and figures are also
+written as ``model_eval_run.ipynb`` (nbformat 4.5-style outputs, similar to
+``orig_notebook_files/notebook_model_eval.ipynb``).
 
 Run from the repository root (editable install or ``PYTHONPATH``)::
 
-    PYTHONPATH=. python model_pipeline/model_eval.py <model.txt> <eval.parquet> <out_dir>
-    python -m model_pipeline.model_eval <model.txt> <eval.parquet> <out_dir>
+    PYTHONPATH=. python model_pipeline/model_eval.py <model.txt> <eval.parquet> [label.parquet] <out_dir>
+    python -m model_pipeline.model_eval <model.txt> <eval.parquet> [label.parquet] <out_dir>
+
+``label.parquet`` is optional; if omitted, the built-in default label Parquet path is used.
 """
 
 import argparse
@@ -32,7 +35,7 @@ import time
 import warnings
 from pathlib import Path
 from types import ModuleType
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import matplotlib
 
@@ -47,24 +50,42 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-CODE_DIR = Path(os.environ.get("MODEL_EVAL_CODE_DIR", "/data1/mex_reloan_data/code_"))
+CODE_DIR = Path(
+    os.environ.get("MODEL_EVAL_CODE_DIR", str(_REPO_ROOT / "model_eval_metric"))
+).expanduser().resolve()
 if str(CODE_DIR) not in sys.path:
     sys.path.insert(0, str(CODE_DIR))
 
 EVAL_MODEL_SCORE_COLUMN = "eval_lgb_model_score"
 
-DEFAULT_LABEL_PARQUET = Path(
-    "/data1/mex_reloan_data/mex_reloan_trace_payout_test_data_s20230101_e20260217_v6features_label_basicinfo"
-)
-
 
 class Tee(io.TextIOBase):
     """Write to multiple text streams (e.g. console + log file)."""
 
-    def __init__(self, *streams):
+    def __init__(self, *streams: Any):
         self.streams = streams
 
     def write(self, s: str) -> int:
+        for st in self.streams:
+            st.write(s)
+            st.flush()
+        return len(s)
+
+    def flush(self) -> None:
+        for st in self.streams:
+            st.flush()
+
+
+class TeeWithNotebook(io.TextIOBase):
+    """Like ``Tee`` but also feeds stdout/stderr text into a ``NotebookOutputRecorder``."""
+
+    def __init__(self, *streams: Any, recorder: Optional[Any] = None):
+        self.streams = streams
+        self._recorder = recorder
+
+    def write(self, s: str) -> int:
+        if self._recorder is not None and s:
+            self._recorder.feed_stream(s)
         for st in self.streams:
             st.write(s)
             st.flush()
@@ -79,8 +100,12 @@ def _install_display_and_show_hooks(
     out_dir: Path,
     me: ModuleType,
     me2: ModuleType,
+    *,
+    recorder: Optional[Any] = None,
 ) -> None:
-    """Capture notebook ``display`` and matplotlib ``show`` into ``out_dir``."""
+    """Capture notebook ``display`` and matplotlib ``show`` into ``out_dir`` and optional notebook."""
+    from pandas.io.formats.style import Styler
+
     display_counter: List[int] = [0]
     figure_counter: List[int] = [0]
 
@@ -90,17 +115,31 @@ def _install_display_and_show_hooks(
         base = out_dir / f"display_{n:04d}"
         if isinstance(obj, pd.DataFrame):
             obj.to_csv(f"{base}.csv", index=False)
+            if recorder is not None:
+                recorder.add_dataframe(obj)
         elif hasattr(obj, "data") and isinstance(getattr(obj, "data"), pd.DataFrame):
             getattr(obj, "data").to_csv(f"{base}_styler_data.csv", index=False)
+            if recorder is not None:
+                if isinstance(obj, Styler):
+                    recorder.add_styler(obj)
+                else:
+                    recorder.add_dataframe(getattr(obj, "data"))
         else:
             with open(f"{base}.txt", "w", encoding="utf-8") as fh:
                 fh.write(repr(obj))
+            if recorder is not None:
+                recorder.add_repr_display(obj)
 
     def show_fn(*_a: Any, **_kw: Any) -> None:
         figure_counter[0] += 1
         n = figure_counter[0]
         path = out_dir / f"figure_{n:04d}.png"
-        plt.savefig(path, bbox_inches="tight", dpi=120)
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches="tight", dpi=120)
+        png = buf.getvalue()
+        path.write_bytes(png)
+        if recorder is not None:
+            recorder.add_png_bytes(png)
         plt.close()
 
     me.display = display_fn  # type: ignore[attr-defined]
@@ -172,9 +211,8 @@ def _has_columns(df: pd.DataFrame, names: List[str]) -> bool:
 def run_evaluation(
     model_file: Union[str, Path],
     eval_data_file: Union[str, Path],
+    label_parquet: Optional[Union[str, Path]],
     data_output_path: Union[str, Path],
-    *,
-    label_parquet: Optional[Path] = None,
 ) -> None:
     """Load data, score with LGB model, run notebook-equivalent evaluation."""
     from model_pipeline.predict_model import predict_scores
@@ -183,23 +221,39 @@ def run_evaluation(
     import modelEvaluation as me
     import modelEvaluation2 as me2
 
+    from model_pipeline.model_eval_nb import NotebookOutputRecorder, format_run_header_markdown
+
     out = Path(data_output_path).expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
     log_path = out / "log.txt"
     log_f = log_path.open("w", encoding="utf-8")
-    tee = Tee(sys.__stdout__, log_f)
+    run_meta: Dict[str, str] = {}
+    nb_rec = NotebookOutputRecorder()
+    tee = TeeWithNotebook(sys.__stdout__, log_f, recorder=nb_rec)
     prev_stdout, prev_stderr = sys.stdout, sys.stderr
     sys.stdout, sys.stderr = tee, tee
 
     try:
         warnings.filterwarnings("ignore")
-        _install_display_and_show_hooks(out, me, me2)
+        _install_display_and_show_hooks(out, me, me2, recorder=nb_rec)
 
         model_path = Path(model_file).expanduser().resolve()
         eval_path = Path(eval_data_file).expanduser().resolve()
 
+        label_path: Optional[Path] = None
+        if label_parquet is not None:
+            label_path = Path(label_parquet).expanduser().resolve()
+        if label_path is None and os.environ.get("MODEL_EVAL_LABEL_DATA"):
+            label_path = Path(os.environ["MODEL_EVAL_LABEL_DATA"]).expanduser()
+
+        run_meta["model"] = str(model_path)
+        run_meta["eval"] = str(eval_path)
+        run_meta["label"] = str(label_path) if label_path is not None else ""
+        run_meta["out"] = str(out)
+
         print(f"model_file: {model_path}", flush=True)
         print(f"eval_data_file: {eval_path}", flush=True)
+        print(f"label_parquet: {label_path!r}", flush=True)
         print(f"data_output_path: {out}", flush=True)
 
         test_data = pd.read_parquet(eval_path)
@@ -212,12 +266,6 @@ def run_evaluation(
         score_parquet = out / "eval_data_with_model_score.parquet"
         test_data.to_parquet(score_parquet, index=False)
         print(f"Wrote scored data: {score_parquet}", flush=True)
-
-        label_path = label_parquet
-        if label_path is None and os.environ.get("MODEL_EVAL_LABEL_DATA"):
-            label_path = Path(os.environ["MODEL_EVAL_LABEL_DATA"]).expanduser()
-        elif label_path is None:
-            label_path = DEFAULT_LABEL_PARQUET
 
         test_data = _maybe_boot_tag(test_data, label_parquet=label_path)
         print(f"After boot tagging, shape: {test_data.shape}", flush=True)
@@ -600,31 +648,45 @@ def run_evaluation(
         log_f.close()
 
     try:
-        from generate_report import build_eval_pdf
-
-        pdf_written = build_eval_pdf(out)
-        print(f"Wrote PDF report: {pdf_written}", flush=True)
+        nb_rec.write_ipynb(
+            out / "model_eval_run.ipynb",
+            title_md=format_run_header_markdown(
+                model_path=run_meta.get("model", str(model_file)),
+                eval_path=run_meta.get("eval", str(eval_data_file)),
+                label_path=run_meta.get("label", str(label_parquet)),
+                out_dir=run_meta.get("out", str(out)),
+            ),
+        )
+        print(f"Wrote notebook: {out / 'model_eval_run.ipynb'}", flush=True)
     except Exception as exc:  # noqa: BLE001
         print(
-            f"Warning: could not build eval_report.pdf ({exc}). "
-            "CSV/PNG artifacts are still under the output directory.",
+            f"Warning: could not write model_eval_run.ipynb ({exc}).",
             file=sys.stderr,
             flush=True,
         )
 
 
 def main() -> None:
+    _default_label = Path(
+        "/data1/mex_reloan_data/mex_reloan_trace_payout_test_data_s20230101_e20260217_v6features_label_basicinfo"
+    )
     p = argparse.ArgumentParser(
         description="Run model_eval.ipynb-style reports on eval data with one LGB model."
     )
     p.add_argument("model_file", help="LightGBM model file (.txt)")
     p.add_argument("eval_data_file", help="Parquet file of rows to score and evaluate")
+    p.add_argument("label_file", help="Parquet for BOOT tagging (get_threeGroup_tag). Default: Mexico v6 label+basicinfo path.")
     p.add_argument(
         "data_output_path",
         help="Output directory for log.txt, figures, tables, scored parquet",
     )
     args = p.parse_args()
-    run_evaluation(args.model_file, args.eval_data_file, args.data_output_path)
+    run_evaluation(
+        args.model_file,
+        args.eval_data_file,
+        args.label_file.expanduser().resolve(),
+        args.data_output_path,
+    )
 
 
 if __name__ == "__main__":
