@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from model_pipeline.train_model import ModelType
@@ -23,35 +24,35 @@ def test_tune_empty_grid(tmp_path, binary_df):
     va = binary_df.iloc[100:130]
     rep = tune(
         tr,
-        model_type=ModelType.LGB,
+        va,
         label="y",
         features=["f1", "f2"],
-        base_params={
+        init_params={
             "objective": "binary",
             "metric": "auc",
             "verbosity": -1,
             "num_leaves": 8,
             "seed": 0,
         },
-        grid_spec={},
-        val_df=va,
+        tune_keys=[],
         workdir=tmp_path / "tune_empty",
         num_boost_round=20,
     )
     assert rep.results.empty
 
 
-def test_tune_requires_val_when_n_splits_1(tmp_path, binary_df):
-    with pytest.raises(ValueError, match="val_df"):
+def test_tune_validate_df_empty_raises(tmp_path, binary_df):
+    empty_va = pd.DataFrame(columns=binary_df.columns)
+    with pytest.raises(ValueError, match="validate_df"):
         tune(
             binary_df.iloc[:50],
-            model_type=ModelType.LGB,
+            empty_va,
             label="y",
             features=["f1", "f2"],
-            base_params={"objective": "binary", "verbosity": -1, "seed": 0},
-            grid_spec={"learning_rate": [0.1]},
-            n_splits=1,
-            val_df=None,
+            init_params={"objective": "binary", "verbosity": -1, "seed": 0},
+            param_lists={"learning_rate": [0.1]},
+            tune_keys=["learning_rate"],
+            max_expansion_rounds=0,
             workdir=tmp_path,
         )
 
@@ -60,13 +61,14 @@ def test_tune_bad_metric(tmp_path, binary_df):
     with pytest.raises(KeyError):
         tune(
             binary_df.iloc[:80],
-            model_type=ModelType.LGB,
+            binary_df.iloc[80:120],
             label="y",
             features=["f1", "f2"],
-            base_params={"objective": "binary", "verbosity": -1, "seed": 0},
-            grid_spec={"learning_rate": [0.1]},
+            init_params={"objective": "binary", "verbosity": -1, "seed": 0},
+            param_lists={"learning_rate": [0.1]},
+            tune_keys=["learning_rate"],
+            max_expansion_rounds=0,
             metric="not_real",
-            val_df=binary_df.iloc[80:120],
             workdir=tmp_path / "bm",
         )
 
@@ -75,11 +77,13 @@ def test_tune_xgb_not_implemented(tmp_path, binary_df):
     with pytest.raises(NotImplementedError):
         tune(
             binary_df.iloc[:80],
-            model_type=ModelType.XGB,
+            binary_df.iloc[80:120],
             label="y",
             features=["f1", "f2"],
-            base_params={},
-            grid_spec={"a": [1]},
-            val_df=binary_df.iloc[80:120],
+            init_params={},
+            param_lists={"a": [1]},
+            tune_keys=["a"],
+            model_type=ModelType.XGB,
+            max_expansion_rounds=0,
             workdir=tmp_path,
         )

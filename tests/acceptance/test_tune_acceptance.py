@@ -9,25 +9,26 @@ def test_acceptance_small_grid(tmp_path, binary_df):
     va = binary_df.iloc[120:]
     rep = tune(
         tr,
-        model_type=ModelType.LGB,
+        va,
         label="y",
         features=["f1", "f2"],
-        base_params={
+        init_params={
             "objective": "binary",
             "metric": "auc",
             "verbosity": -1,
             "seed": 11,
+            "learning_rate": 0.1,
+            "num_leaves": 12,
         },
-        grid_spec={
+        param_lists={
             "learning_rate": [0.05, 0.2],
             "num_leaves": [8, 16],
         },
+        tune_keys=["learning_rate", "num_leaves"],
         metric="auc",
-        n_splits=1,
-        val_df=va,
+        max_expansion_rounds=0,
         workdir=tmp_path / "tune_run",
         num_boost_round=40,
-        random_state=42,
     )
     assert len(rep.results) == 4
     assert set(rep.best_params.keys()) == {"learning_rate", "num_leaves"}
