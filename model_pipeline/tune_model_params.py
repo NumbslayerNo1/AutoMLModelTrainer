@@ -20,7 +20,11 @@ Strategy (high level)
 
 from __future__ import annotations
 
+import json
 import math
+import os
+import shutil
+import sys
 from itertools import product
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
@@ -30,6 +34,69 @@ import pandas as pd
 
 from model_pipeline.metrics import compute_metric, resolve_metric
 from model_pipeline.train_model import ModelType, TuningReport, train
+
+# Per-trial JSON next to model / feature-importance files under ``workdir`` (``tune_workspace``).
+TRIAL_CONFIG_VERSION = 1
+# Human-readable tuning messages (terminal + append to this file under ``workdir``).
+TUNE_LOG_FILENAME = "log.txt"
+# Best-so-far snapshots under ``output_dir / VALIDATION_RECORD_DIRNAME``.
+VALIDATION_RECORD_DIRNAME = "validation_record"
+# Root-of-search outputs under ``output_dir`` after a successful tune.
+BEST_OF_ALL_MODEL = "best_of_all_model.txt"
+BEST_OF_ALL_FEATURE_IMPORTANCE = "best_of_all_feature_importance.csv"
+BEST_OF_ALL_CONFIG = "best_of_all_config.json"
+
+
+def _tune_log_line(workdir: Path, *parts: Any, sep: str = " ", flush: bool = True) -> None:
+    """Print to stdout and append the same line to ``workdir / TUNE_LOG_FILENAME``."""
+    msg = sep.join(str(p) for p in parts)
+    print(msg, flush=flush)
+    log_path = workdir / TUNE_LOG_FILENAME
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(msg + "\n")
+        if flush:
+            f.flush()
+
+
+def _clear_directory_contents(path: Path) -> None:
+    """Remove all children of *path*; leave *path* as an empty directory."""
+    if not path.is_dir():
+        return
+    for child in path.iterdir():
+        if child.is_file() or child.is_symlink():
+            child.unlink(missing_ok=True)
+        elif child.is_dir():
+            shutil.rmtree(child)
+
+
+def _workdir_has_children(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    return any(path.iterdir())
+
+
+def _confirm_clean_workdir(workdir: Path, *, require_confirmation: bool) -> None:
+    """Prompt or require env before clearing a non-empty *workdir* (``clean_run=True``)."""
+    if not _workdir_has_children(workdir):
+        return
+    if not require_confirmation:
+        return
+    if sys.stdin.isatty():
+        reply = input(
+            f"About to delete all files in {workdir!s}. Continue? [y/N]: "
+        ).strip().lower()
+        if reply not in ("y", "yes"):
+            raise SystemExit("Aborted: tune_workspace was not cleared.")
+        return
+    env = os.environ.get("TUNE_CONFIRM_CLEAN", "").strip().lower()
+    if env in ("1", "yes", "true"):
+        return
+    raise RuntimeError(
+        "Refusing to clear non-empty workdir in non-interactive mode. Set "
+        "environment variable TUNE_CONFIRM_CLEAN=1 to confirm, or run from a "
+        "terminal, or pass require_clean_confirmation=False to tune()."
+    )
+
 
 # Keys commonly tuned for binary LGB; subset is used if missing from init_params.
 _DEFAULT_TUNE_KEYS: Tuple[str, ...] = (
@@ -140,6 +207,241 @@ def suggest_lgb_param_lists(
 
 def _combo_frozen(delta: dict[str, Any], keys: Sequence[str]) -> Tuple[Any, ...]:
     return tuple((k, delta[k]) for k in sorted(keys))
+
+
+def _jsonable_param_value(v: Any) -> Any:
+    if hasattr(v, "item"):
+        try:
+            return v.item()
+        except Exception:
+            return v
+    if isinstance(v, (np.integer, np.floating)):
+        return v.item()
+    return v
+
+
+def _delta_json_for_log(delta: dict[str, Any], keys: Sequence[str]) -> str:
+    ordered = sorted(keys, key=lambda x: (isinstance(x, str), x))
+    return json.dumps(
+        {k: _jsonable_param_value(delta[k]) for k in ordered},
+        sort_keys=False,
+        ensure_ascii=False,
+    )
+
+
+def _trial_asset_names(trial_index: int) -> Tuple[str, str, str]:
+    stem = f"trial_{trial_index:06d}"
+    return (
+        f"{stem}_model.txt",
+        f"{stem}_feature_importance.csv",
+        f"{stem}_trial_config.json",
+    )
+
+
+def _trial_config_record(
+    *,
+    trial_index: int,
+    expansion_round: int,
+    trial_index_in_round: int,
+    validation_metric: float,
+    metric_name: str | None,
+    trial_params: dict[str, Any],
+    tune_keys: Sequence[str],
+    model_file: str,
+    feature_importance_file: str,
+) -> dict[str, Any]:
+    sorted_param_keys = sorted(trial_params.keys(), key=lambda x: (isinstance(x, str), x))
+    return {
+        "version": TRIAL_CONFIG_VERSION,
+        "trial_index": int(trial_index),
+        "expansion_round": int(expansion_round),
+        "trial_index_in_round": int(trial_index_in_round),
+        "validation_metric": float(validation_metric),
+        "metric_name": metric_name,
+        "trial_params": {
+            k: _jsonable_param_value(trial_params[k]) for k in sorted_param_keys
+        },
+        "tune_keys": sorted(tune_keys, key=lambda x: (isinstance(x, str), x)),
+        "model_file": model_file,
+        "feature_importance_file": feature_importance_file,
+    }
+
+
+def _write_trial_config(workdir: Path, record: dict[str, Any]) -> None:
+    cfg_name = f"trial_{int(record['trial_index']):06d}_trial_config.json"
+    (workdir / cfg_name).write_text(
+        json.dumps(record, indent=2, ensure_ascii=True, default=str) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _resolve_output_dir(workdir: Path, output_dir: Optional[str | Path]) -> Path:
+    if output_dir is not None:
+        return Path(output_dir).resolve()
+    return workdir.resolve().parent
+
+
+def _load_trial_configs_from_workdir(
+    workdir: Path,
+    keys: Sequence[str],
+    metric: str | Callable[..., float],
+    *,
+    log_workdir: Path,
+) -> Tuple[Set[Tuple[Any, ...]], List[dict[str, Any]], float, int]:
+    """Load prior trials from ``trial_*_trial_config.json``; return seen, rows, best_score, max_trial_index."""
+    seen: Set[Tuple[Any, ...]] = set()
+    rows: List[dict[str, Any]] = []
+    best_global = float("-inf")
+    max_trial_index = -1
+    key_set = set(keys)
+    metric_filter: str | None = metric if isinstance(metric, str) else None
+
+    if not workdir.is_dir():
+        return seen, rows, best_global, max_trial_index
+
+    for path in sorted(workdir.glob("trial_*_trial_config.json")):
+        try:
+            rec = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if rec.get("version") != TRIAL_CONFIG_VERSION:
+            continue
+        tk = rec.get("tune_keys")
+        if not isinstance(tk, list) or set(tk) != key_set:
+            continue
+        if metric_filter is not None and rec.get("metric_name") != metric_filter:
+            continue
+        if metric_filter is None and rec.get("metric_name") is not None:
+            continue
+        tp = rec.get("trial_params")
+        if not isinstance(tp, dict):
+            continue
+        try:
+            delta = {k: tp[k] for k in keys}
+        except KeyError:
+            continue
+        try:
+            mm = float(rec["validation_metric"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isnan(mm) or math.isinf(mm):
+            continue
+        try:
+            ti = int(rec["trial_index"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        model_file = rec.get("model_file")
+        imp_file = rec.get("feature_importance_file")
+        if not isinstance(model_file, str) or not isinstance(imp_file, str):
+            continue
+        if not (workdir / model_file).is_file() or not (workdir / imp_file).is_file():
+            continue
+        fp = _combo_frozen(delta, keys)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        max_trial_index = max(max_trial_index, ti)
+        try:
+            er = int(rec.get("expansion_round", 0))
+        except (TypeError, ValueError):
+            er = 0
+        try:
+            tir = int(rec.get("trial_index_in_round", -1))
+        except (TypeError, ValueError):
+            tir = -1
+        try:
+            ms = float(rec.get("metric_std", 0.0))
+        except (TypeError, ValueError):
+            ms = 0.0
+        row = {
+            **delta,
+            "metric_mean": mm,
+            "metric_std": ms,
+            "expansion_round": er,
+            "trial_index": ti,
+            "trial_index_in_round": tir,
+            "model_file": model_file,
+            "feature_importance_file": imp_file,
+        }
+        rows.append(row)
+        best_global = max(best_global, mm)
+        delta_log = _delta_json_for_log(delta, keys)
+        metric_label = metric_filter if metric_filter is not None else "<callable_metric>"
+        _tune_log_line(
+            log_workdir,
+            "[tune] resume: loaded trial_config — "
+            f"trial_index={ti} params={delta_log}; metric={metric_label} "
+            f"validation_metric={mm:.6f} expansion_round={er}",
+        )
+
+    if metric_filter is None and rows:
+        _tune_log_line(
+            log_workdir,
+            "[tune] resume: metric is callable; loaded "
+            f"{len(rows)} trial config(s) with no metric name filter.",
+        )
+    elif rows:
+        _tune_log_line(
+            log_workdir,
+            f"[tune] resume: loaded {len(rows)} trial(s) from {workdir}",
+        )
+    return seen, rows, best_global, max_trial_index
+
+
+def _copy_best_of_all(
+    workdir: Path,
+    output_dir: Path,
+    best_row: pd.Series,
+    keys: Sequence[str],
+    metric_name: str | None,
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    ti = int(best_row["trial_index"])
+    cfg_path = workdir / f"trial_{ti:06d}_trial_config.json"
+    model_rel = str(best_row["model_file"])
+    imp_rel = str(best_row["feature_importance_file"])
+    mp = workdir / model_rel
+    ip = workdir / imp_rel
+    if not mp.is_file() or not ip.is_file():
+        _tune_log_line(
+            workdir,
+            f"[tune] warning: best trial files missing ({model_rel!r} / {imp_rel!r}); "
+            "skipping best_of_all copy.",
+        )
+        return
+    trial_params: dict[str, Any]
+    if cfg_path.is_file():
+        try:
+            src = json.loads(cfg_path.read_text(encoding="utf-8"))
+            tp = src.get("trial_params")
+            trial_params = dict(tp) if isinstance(tp, dict) else {k: best_row[k] for k in keys}
+        except (json.JSONDecodeError, OSError, TypeError):
+            trial_params = {k: best_row[k] for k in keys}
+    else:
+        trial_params = {k: best_row[k] for k in keys}
+    shutil.copy2(mp, output_dir / BEST_OF_ALL_MODEL)
+    shutil.copy2(ip, output_dir / BEST_OF_ALL_FEATURE_IMPORTANCE)
+    rec = _trial_config_record(
+        trial_index=ti,
+        expansion_round=int(best_row["expansion_round"]),
+        trial_index_in_round=int(best_row.get("trial_index_in_round", -1)),
+        validation_metric=float(best_row["metric_mean"]),
+        metric_name=metric_name,
+        trial_params=trial_params,
+        tune_keys=keys,
+        model_file=BEST_OF_ALL_MODEL,
+        feature_importance_file=BEST_OF_ALL_FEATURE_IMPORTANCE,
+    )
+    (output_dir / BEST_OF_ALL_CONFIG).write_text(
+        json.dumps(rec, indent=2, ensure_ascii=True, default=str) + "\n",
+        encoding="utf-8",
+    )
+    _tune_log_line(
+        workdir,
+        f"[tune] wrote {output_dir / BEST_OF_ALL_MODEL}, "
+        f"{output_dir / BEST_OF_ALL_FEATURE_IMPORTANCE}, "
+        f"{output_dir / BEST_OF_ALL_CONFIG}",
+    )
 
 
 def _find_boundary_keys(
@@ -262,6 +564,9 @@ def tune(
     workdir: str | Path = ".",
     is_early_stopping: bool = False,
     num_boost_round: int = 80,
+    clean_run: bool = False,
+    output_dir: Optional[str | Path] = None,
+    require_clean_confirmation: bool = True,
 ) -> TuningReport:
     """Hyperparameter search on ``validate_df`` (default metric: ``auc``).
 
@@ -269,6 +574,28 @@ def tune(
     If the best point lies on the edge of any tuned axis, that axis is extended and new
     combinations are evaluated until the score stops improving, there are no edges, or
     ``max_expansion_rounds`` is hit.
+
+    Each completed trial writes under ``workdir``: a model file, a feature-importance
+    file, and ``trial_<index>_trial_config.json`` recording trial index, validation
+    metric, full ``trial_params``, and artifact basenames.
+
+    When ``clean_run`` is false (default), existing ``trial_*_trial_config.json`` files
+    in ``workdir`` are read (matching ``tune_keys`` and metric name): those parameter
+    sets are skipped, the best validation metric seeds the search, and only unseen grid
+    points are trained.
+
+    When ``clean_run`` is true, ``workdir`` and ``output_dir / validation_record`` are
+    cleared (then a full search from scratch). ``workdir`` must not be cwd. Confirmation
+    rules match ``require_clean_confirmation`` / ``TUNE_CONFIRM_CLEAN``.
+
+    On each new best validation score, artifacts are copied under
+    ``output_dir / validation_record`` as ``improvement_<n>_*.`` At the end, the overall
+    best trial is copied to ``output_dir`` as ``best_of_all_model.txt``,
+    ``best_of_all_feature_importance.csv``, and ``best_of_all_config.json``.
+
+    ``output_dir`` defaults to ``workdir.parent`` when omitted.
+
+    The same ``[tune] ...`` messages are appended to ``workdir / TUNE_LOG_FILENAME``.
     """
     if model_type != ModelType.LGB:
         raise NotImplementedError(f"tune not implemented for {model_type!r}")
@@ -313,11 +640,53 @@ def tune(
     import lightgbm as lgb
 
     workdir = Path(workdir)
-    workdir.mkdir(parents=True, exist_ok=True)
+    out_root = _resolve_output_dir(workdir, output_dir)
+    validation_record_dir = out_root / VALIDATION_RECORD_DIRNAME
+
+    if clean_run:
+        try:
+            if workdir.resolve() == Path.cwd().resolve():
+                raise ValueError(
+                    "workdir must not be the current working directory when clean_run=True "
+                    "(output folder would be cleared). Use a dedicated subdirectory."
+                )
+        except OSError:
+            pass
+        if workdir.is_dir():
+            _confirm_clean_workdir(
+                workdir, require_confirmation=require_clean_confirmation
+            )
+            _clear_directory_contents(workdir)
+        workdir.mkdir(parents=True, exist_ok=True)
+        if validation_record_dir.is_dir():
+            _clear_directory_contents(validation_record_dir)
+        validation_record_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        workdir.mkdir(parents=True, exist_ok=True)
+        validation_record_dir.mkdir(parents=True, exist_ok=True)
+
+    metric_name = metric if isinstance(metric, str) else None
 
     seen: Set[Tuple[Any, ...]] = set()
     rows: list[dict[str, Any]] = []
     best_global = float("-inf")
+    next_trial_seq = 0
+    improvement_n = 0
+
+    if not clean_run:
+        seen, loaded_rows, best_global, max_trial = _load_trial_configs_from_workdir(
+            workdir, keys, metric, log_workdir=workdir
+        )
+        rows.extend(loaded_rows)
+        next_trial_seq = max_trial + 1 if max_trial >= 0 else 0
+        if loaded_rows:
+            metric_label = metric if isinstance(metric, str) else "metric"
+            _tune_log_line(
+                workdir,
+                f"[tune] resume: {len(loaded_rows)} prior trial(s) from configs; "
+                f"best validation {metric_label}={best_global:.6f}; "
+                f"next trial_index={next_trial_seq}; training only unseen parameter sets.",
+            )
 
     for round_idx in range(max_expansion_rounds + 1):
         grid_spec = {k: lists[k] for k in keys}
@@ -336,8 +705,17 @@ def tune(
 
         for i, delta in enumerate(new_deltas):
             params = {**base, **delta}
-            mp = workdir / f"tune_r{round_idx}_{i}.txt"
-            ip = workdir / f"tune_imp_r{round_idx}_{i}.csv"
+            t_idx = next_trial_seq
+            next_trial_seq += 1
+            model_file, imp_file, _cfg_name = _trial_asset_names(t_idx)
+            mp = workdir / model_file
+            ip = workdir / imp_file
+            delta_log = _delta_json_for_log(delta, keys)
+            _tune_log_line(
+                workdir,
+                f"[tune] parameter params={delta_log} is under training "
+                f"(expansion_round={round_idx}, trial_index_in_round={i}, trial_index={t_idx})",
+            )
             train(
                 train_df,
                 validate_df,
@@ -355,21 +733,68 @@ def tune(
             booster = lgb.Booster(model_file=str(mp))
             pred = booster.predict(validate_df[features])
             score = compute_metric(metric, validate_df[label].values, pred)
+            cfg_rec = _trial_config_record(
+                trial_index=t_idx,
+                expansion_round=round_idx,
+                trial_index_in_round=i,
+                validation_metric=score,
+                metric_name=metric_name,
+                trial_params=params,
+                tune_keys=keys,
+                model_file=model_file,
+                feature_importance_file=imp_file,
+            )
+            _write_trial_config(workdir, cfg_rec)
             row = {
                 **delta,
                 "metric_mean": score,
                 "metric_std": 0.0,
                 "expansion_round": round_idx,
+                "trial_index": t_idx,
+                "trial_index_in_round": i,
+                "model_file": model_file,
+                "feature_importance_file": imp_file,
             }
             rows.append(row)
             prev_best = best_global
             best_global = max(best_global, score)
             if score > prev_best + 1e-15:
                 metric_label = metric if isinstance(metric, str) else "metric"
-                print(
+                _tune_log_line(
+                    workdir,
                     f"[tune] new best validation {metric_label}={score:.6f} "
-                    f"(expansion_round={round_idx}) params={params}",
-                    flush=True,
+                    f"(trial_index={t_idx}, expansion_round={round_idx}) params={params}",
+                )
+                improvement_n += 1
+                m_dst = (
+                    validation_record_dir
+                    / f"improvement_{improvement_n:04d}_model.txt"
+                )
+                i_dst = (
+                    validation_record_dir
+                    / f"improvement_{improvement_n:04d}_feature_importance.csv"
+                )
+                c_dst = (
+                    validation_record_dir
+                    / f"improvement_{improvement_n:04d}_config.json"
+                )
+                shutil.copy2(mp, m_dst)
+                shutil.copy2(ip, i_dst)
+                imp_rec = _trial_config_record(
+                    trial_index=t_idx,
+                    expansion_round=round_idx,
+                    trial_index_in_round=i,
+                    validation_metric=score,
+                    metric_name=metric_name,
+                    trial_params=params,
+                    tune_keys=keys,
+                    model_file=m_dst.name,
+                    feature_importance_file=i_dst.name,
+                )
+                c_dst.write_text(
+                    json.dumps(imp_rec, indent=2, ensure_ascii=True, default=str)
+                    + "\n",
+                    encoding="utf-8",
                 )
 
         if round_idx == max_expansion_rounds:
@@ -414,6 +839,7 @@ def tune(
     best_row = results.iloc[best_idx]
     best_params = {k: best_row[k] for k in keys}
     best_score = float(best_row["metric_mean"])
+    _copy_best_of_all(workdir, out_root, best_row, keys, metric_name)
     return TuningReport(
         model_type=model_type,
         results=results,
@@ -510,3 +936,25 @@ def tune_cv(
         best_params=best_params,
         best_score=best_score,
     )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    _ap = argparse.ArgumentParser(
+        description=(
+            "LightGBM hyperparameter search helpers. Import and call tune() from your "
+            "training script; default clean_run=False resumes from trial_*_trial_config.json "
+            "files under workdir."
+        )
+    )
+    _ap.add_argument(
+        "--clean-run",
+        action="store_true",
+        help=(
+            "Not used when this file is run directly; pass clean_run=True to tune() for a "
+            "fresh search (confirmation if workdir is non-empty)."
+        ),
+    )
+    _ap.parse_args()
+    _ap.print_help()

@@ -9,11 +9,18 @@ oracle notebook recipe (early stopping + refit on train+val) and writes:
 * ``feature_importance_best.txt`` — feature importance (CSV lines, ``.txt`` suffix as requested)
 * ``config_best.txt`` — JSON with metric, best validation score during search, and full param dict
 
-Intermediate trial models live under ``<output_dir>/tune_workspace/``.
+Each trial writes under ``<output_dir>/tune_workspace/``: ``trial_<n>_model.txt``,
+``trial_<n>_feature_importance.csv``, and ``trial_<n>_trial_config.json``. By default the
+run resumes from those configs (skip completed params, continue from best metric). New
+bests are copied to ``<output_dir>/validation_record/improvement_*``. After tuning,
+``best_of_all_*`` files are written under ``<output_dir>``. Use ``--clean-run`` to wipe
+``tune_workspace`` and ``validation_record`` (confirmation if non-empty). Use
+``--sample-frac`` (e.g. ``0.01``) to subsample train and validation rows for dry runs.
 """
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import os
@@ -40,7 +47,12 @@ import pandas as pd
 
 from model_pipeline.load_data import load_dataset
 from model_pipeline.train_model import train
-from model_pipeline.tune_model_params import tune
+from model_pipeline.tune_model_params import (
+    BEST_OF_ALL_CONFIG,
+    BEST_OF_ALL_FEATURE_IMPORTANCE,
+    BEST_OF_ALL_MODEL,
+    tune,
+)
 
 DEFAULT_OUTPUT_DIR = Path("/data1/bogeng/data_output/validation_03252026")
 
@@ -55,6 +67,30 @@ def _json_default(obj: Any) -> Any:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Tune LightGBM on validation, then train the best config."
+    )
+    parser.add_argument(
+        "--clean-run",
+        action="store_true",
+        help=(
+            "Clear tune_workspace and run validation from scratch (prompt before delete "
+            "if non-empty; non-interactive runs need TUNE_CONFIRM_CLEAN=1). "
+            "Default: resume from trial_*_trial_config.json in tune_workspace."
+        ),
+    )
+    parser.add_argument(
+        "--sample-frac",
+        type=float,
+        default=1.0,
+        metavar="F",
+        help=(
+            "After load, randomly keep this fraction of rows in train and validation "
+            "(0 < F ≤ 1). Default 1.0 uses full data. Seed: BG_SAMPLE_SEED (default 42)."
+        ),
+    )
+    args = parser.parse_args()
+
     oracle = _load_oracle_module()
 
     feat_csv = Path(os.environ.get("MEX_RELOAN_FEATURE_DESC_CSV", oracle.FEATURE_DESC_CSV))
@@ -79,6 +115,23 @@ def main() -> None:
     if val_df is None or len(val_df) == 0:
         raise FileNotFoundError(
             f"Validation data required for tuning; missing or empty: {val_path}"
+        )
+
+    sf = float(args.sample_frac)
+    if sf <= 0 or sf > 1.0:
+        raise ValueError("--sample-frac must satisfy 0 < F ≤ 1")
+    if sf < 1.0:
+        sample_seed = int(os.environ.get("BG_SAMPLE_SEED", "42"))
+        n_tr, n_va = len(train_df), len(val_df)
+        train_df = train_df.sample(frac=sf, random_state=sample_seed).reset_index(
+            drop=True
+        )
+        val_df = val_df.sample(frac=sf, random_state=sample_seed + 1).reset_index(
+            drop=True
+        )
+        print(
+            f"sample_frac={sf}: train {n_tr}->{len(train_df)}, val {n_va}->{len(val_df)}",
+            flush=True,
         )
 
     pos_rate = float(train_df[label].mean())
@@ -106,12 +159,20 @@ def main() -> None:
         metric=metric,
         max_expansion_rounds=tune_max_expansion,
         workdir=tune_workspace,
+        output_dir=output_dir,
         is_early_stopping=True,
         num_boost_round=tune_num_rounds,
+        clean_run=args.clean_run,
     )
 
     print(f"Best {metric}: {report.best_score}", flush=True)
     print(f"Best delta (tuned keys): {report.best_params}", flush=True)
+    print(
+        f"Search best artifacts: {output_dir / BEST_OF_ALL_MODEL}, "
+        f"{output_dir / BEST_OF_ALL_FEATURE_IMPORTANCE}, "
+        f"{output_dir / BEST_OF_ALL_CONFIG}",
+        flush=True,
+    )
 
     full_best_params = {**init_params, **report.best_params}
     config_path = output_dir / "config_best.txt"

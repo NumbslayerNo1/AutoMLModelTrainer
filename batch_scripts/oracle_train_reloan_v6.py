@@ -32,7 +32,7 @@ NOTEBOOK_NUM_BOOST_ROUND = 30_000
 NOTEBOOK_LOG_EVAL_PERIOD = 600
 NOTEBOOK_EARLY_STOPPING_ROUNDS = 100
 
-DEFAULT_OUTPUT_DIR = Path("/data1/bogeng/data_output/validation_03252025")
+DEFAULT_OUTPUT_DIR = Path("/data1/bogeng/data_output/pipeline_test")
 
 
 def notebook_lgb_params(scale_pos_weight: float) -> dict[str, Any]:
