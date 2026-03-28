@@ -5299,3 +5299,201 @@ Early stopping, best iteration is:
 [350]	training's auc: 0.800911	valid_1's auc: 0.641139
 [tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 50, "colsample_bytree": 0.8500000000000001, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 10.0} is under training (expansion_round=0, trial_index_in_round=221, trial_index=221)
 Training until validation scores don't improve for 100 rounds
+scale_pos_weight: 16.9
+output_dir: /data1/bogeng/data_output/validation_03272026
+tune_workspace: /data1/bogeng/data_output/validation_03272026/tune_workspace
+Tuning (metric=auc, num_boost_round=8000)...
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 0, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=0, trial_index=0)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.764902	valid_1's auc: 0.738176
+[tune] new best validation auc=0.738176 (trial_index=0, expansion_round=0) params={'boosting_type': 'gbdt', 'objective': 'binary', 'metric': 'auc', 'learning_rate': 0.01, 'bagging_fraction': 0.65, 'bagging_freq': 0, 'min_child_weight': 500.0, 'scale_pos_weight': 16.9, 'max_depth': 3, 'num_leaves': 7, 'reg_alpha': 0.125, 'reg_lambda': 5.0, 'colsample_bytree': 0.65, 'verbose': -1, 'min_data_in_bin': 2000, 'bin_construct_sample_cnt': 100000, 'num_threads': 80, 'device_type': 'cpu', 'random_state': 123}
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 50, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=1, trial_index=1)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.76561	valid_1's auc: 0.738733
+[tune] new best validation auc=0.738733 (trial_index=1, expansion_round=0) params={'boosting_type': 'gbdt', 'objective': 'binary', 'metric': 'auc', 'learning_rate': 0.01, 'bagging_fraction': 0.65, 'bagging_freq': 50, 'min_child_weight': 500.0, 'scale_pos_weight': 16.9, 'max_depth': 3, 'num_leaves': 7, 'reg_alpha': 0.125, 'reg_lambda': 5.0, 'colsample_bytree': 0.65, 'verbose': -1, 'min_data_in_bin': 2000, 'bin_construct_sample_cnt': 100000, 'num_threads': 80, 'device_type': 'cpu', 'random_state': 123}
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 100, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=2, trial_index=2)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765419	valid_1's auc: 0.738735
+[tune] new best validation auc=0.738735 (trial_index=2, expansion_round=0) params={'boosting_type': 'gbdt', 'objective': 'binary', 'metric': 'auc', 'learning_rate': 0.01, 'bagging_fraction': 0.65, 'bagging_freq': 100, 'min_child_weight': 500.0, 'scale_pos_weight': 16.9, 'max_depth': 3, 'num_leaves': 7, 'reg_alpha': 0.125, 'reg_lambda': 5.0, 'colsample_bytree': 0.65, 'verbose': -1, 'min_data_in_bin': 2000, 'bin_construct_sample_cnt': 100000, 'num_threads': 80, 'device_type': 'cpu', 'random_state': 123}
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 150, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=3, trial_index=3)
+Training until validation scores don't improve for 100 rounds
+Early stopping, best iteration is:
+[7054]	training's auc: 0.761441	valid_1's auc: 0.737888
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 200, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=4, trial_index=4)
+Training until validation scores don't improve for 100 rounds
+Early stopping, best iteration is:
+[7600]	training's auc: 0.763424	valid_1's auc: 0.738289
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 0, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=5, trial_index=5)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.764902	valid_1's auc: 0.738176
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 50, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=6, trial_index=6)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765788	valid_1's auc: 0.739127
+[tune] new best validation auc=0.739127 (trial_index=6, expansion_round=0) params={'boosting_type': 'gbdt', 'objective': 'binary', 'metric': 'auc', 'learning_rate': 0.01, 'bagging_fraction': 0.75, 'bagging_freq': 50, 'min_child_weight': 500.0, 'scale_pos_weight': 16.9, 'max_depth': 3, 'num_leaves': 7, 'reg_alpha': 0.125, 'reg_lambda': 5.0, 'colsample_bytree': 0.65, 'verbose': -1, 'min_data_in_bin': 2000, 'bin_construct_sample_cnt': 100000, 'num_threads': 80, 'device_type': 'cpu', 'random_state': 123}
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 100, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=7, trial_index=7)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765598	valid_1's auc: 0.738923
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 150, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=8, trial_index=8)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765402	valid_1's auc: 0.738762
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 200, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=9, trial_index=9)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765189	valid_1's auc: 0.738121
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 0, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=10, trial_index=10)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.764902	valid_1's auc: 0.738176
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 50, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=11, trial_index=11)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765573	valid_1's auc: 0.73899
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 100, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=12, trial_index=12)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765351	valid_1's auc: 0.73888
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 150, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=13, trial_index=13)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765233	valid_1's auc: 0.738818
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 200, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=14, trial_index=14)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765154	valid_1's auc: 0.738438
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 0, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=15, trial_index=15)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.764902	valid_1's auc: 0.738176
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 50, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=16, trial_index=16)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765518	valid_1's auc: 0.738993
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 100, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=17, trial_index=17)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765341	valid_1's auc: 0.738982
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 150, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=18, trial_index=18)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765356	valid_1's auc: 0.738787
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 200, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=19, trial_index=19)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765391	valid_1's auc: 0.738465
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 0, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=20, trial_index=20)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.764902	valid_1's auc: 0.738176
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 50, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=21, trial_index=21)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765342	valid_1's auc: 0.738776
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 100, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=22, trial_index=22)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765333	valid_1's auc: 0.738605
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 150, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=23, trial_index=23)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765293	valid_1's auc: 0.738596
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 200, "colsample_bytree": 0.65, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=24, trial_index=24)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765279	valid_1's auc: 0.738665
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 0, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=25, trial_index=25)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765135	valid_1's auc: 0.738156
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 50, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=26, trial_index=26)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765827	valid_1's auc: 0.738896
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 100, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=27, trial_index=27)
+Training until validation scores don't improve for 100 rounds
+Early stopping, best iteration is:
+[7791]	training's auc: 0.764886	valid_1's auc: 0.738581
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 150, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=28, trial_index=28)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765244	valid_1's auc: 0.738512
+[tune] parameter params={"bagging_fraction": 0.65, "bagging_freq": 200, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=29, trial_index=29)
+Training until validation scores don't improve for 100 rounds
+Early stopping, best iteration is:
+[7599]	training's auc: 0.763669	valid_1's auc: 0.738195
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 0, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=30, trial_index=30)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765135	valid_1's auc: 0.738156
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 50, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=31, trial_index=31)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.766086	valid_1's auc: 0.739039
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 100, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=32, trial_index=32)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765808	valid_1's auc: 0.738897
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 150, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=33, trial_index=33)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.76557	valid_1's auc: 0.738384
+[tune] parameter params={"bagging_fraction": 0.75, "bagging_freq": 200, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=34, trial_index=34)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765427	valid_1's auc: 0.738271
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 0, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=35, trial_index=35)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765135	valid_1's auc: 0.738156
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 50, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=36, trial_index=36)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765767	valid_1's auc: 0.738822
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 100, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=37, trial_index=37)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765677	valid_1's auc: 0.73893
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 150, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=38, trial_index=38)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765531	valid_1's auc: 0.738697
+[tune] parameter params={"bagging_fraction": 0.8, "bagging_freq": 200, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=39, trial_index=39)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765365	valid_1's auc: 0.73837
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 0, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=40, trial_index=40)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765135	valid_1's auc: 0.738156
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 50, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=41, trial_index=41)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765827	valid_1's auc: 0.739049
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 100, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=42, trial_index=42)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765562	valid_1's auc: 0.738963
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 150, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=43, trial_index=43)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765608	valid_1's auc: 0.738829
+[tune] parameter params={"bagging_fraction": 0.8500000000000001, "bagging_freq": 200, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=44, trial_index=44)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765644	valid_1's auc: 0.738491
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 0, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=45, trial_index=45)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765135	valid_1's auc: 0.738156
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 50, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=46, trial_index=46)
+Training until validation scores don't improve for 100 rounds
+Did not meet early stopping. Best iteration is:
+[8000]	training's auc: 0.765646	valid_1's auc: 0.738845
+[tune] parameter params={"bagging_fraction": 0.9500000000000001, "bagging_freq": 100, "colsample_bytree": 0.75, "learning_rate": 0.01, "max_depth": 3, "min_child_weight": 500.0, "num_leaves": 7, "reg_alpha": 0.125, "reg_lambda": 5.0} is under training (expansion_round=0, trial_index_in_round=47, trial_index=47)
+Training until validation scores don't improve for 100 rounds

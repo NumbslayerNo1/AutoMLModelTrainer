@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import shutil
 import sys
 from itertools import product
@@ -75,24 +76,24 @@ def _workdir_has_children(path: Path) -> bool:
     return any(path.iterdir())
 
 
-def _confirm_clean_workdir(workdir: Path, *, require_confirmation: bool) -> None:
-    """Prompt or require env before clearing a non-empty *workdir* (``clean_run=True``)."""
-    if not _workdir_has_children(workdir):
+def _confirm_clean_output_dir(path: Path, *, require_confirmation: bool) -> None:
+    """Prompt or require env before clearing a non-empty *path* (``clean_run=True``)."""
+    if not _workdir_has_children(path):
         return
     if not require_confirmation:
         return
     if sys.stdin.isatty():
         reply = input(
-            f"About to delete all files in {workdir!s}. Continue? [y/N]: "
+            f"About to delete all files and folders under {path!s}. Continue? [y/N]: "
         ).strip().lower()
         if reply not in ("y", "yes"):
-            raise SystemExit("Aborted: tune_workspace was not cleared.")
+            raise SystemExit("Aborted: output directory was not cleared.")
         return
     env = os.environ.get("TUNE_CONFIRM_CLEAN", "").strip().lower()
     if env in ("1", "yes", "true"):
         return
     raise RuntimeError(
-        "Refusing to clear non-empty workdir in non-interactive mode. Set "
+        "Refusing to clear non-empty output directory in non-interactive mode. Set "
         "environment variable TUNE_CONFIRM_CLEAN=1 to confirm, or run from a "
         "terminal, or pass require_clean_confirmation=False to tune()."
     )
@@ -236,6 +237,56 @@ def _trial_asset_names(trial_index: int) -> Tuple[str, str, str]:
         f"{stem}_feature_importance.csv",
         f"{stem}_trial_config.json",
     )
+
+
+_TRIAL_FILE_INDEX_RE = re.compile(r"^trial_(\d{6})_")
+_IMPROVEMENT_FILE_INDEX_RE = re.compile(r"^improvement_(\d{4})_")
+
+
+def _max_trial_index_on_disk(workdir: Path) -> int:
+    """Return the max trial index from any ``trial_NNNNNN_*`` filename under *workdir*."""
+    max_i = -1
+    if not workdir.is_dir():
+        return max_i
+    for p in workdir.iterdir():
+        if not p.is_file():
+            continue
+        m = _TRIAL_FILE_INDEX_RE.match(p.name)
+        if m:
+            max_i = max(max_i, int(m.group(1)))
+    return max_i
+
+
+def _max_improvement_index_on_disk(validation_record_dir: Path) -> int:
+    """Return max *N* from ``improvement_NNNN_*`` files (0 if none)."""
+    max_i = 0
+    if not validation_record_dir.is_dir():
+        return max_i
+    for p in validation_record_dir.iterdir():
+        if not p.is_file():
+            continue
+        m = _IMPROVEMENT_FILE_INDEX_RE.match(p.name)
+        if m:
+            max_i = max(max_i, int(m.group(1)))
+    return max_i
+
+
+def _allocate_next_trial_index(workdir: Path, start: int) -> int:
+    """Return the first index ``>= max(0, start)`` with no existing trial slot files."""
+    t = max(0, int(start))
+    while True:
+        mf, imp, cfg = _trial_asset_names(t)
+        if (
+            not (workdir / mf).exists()
+            and not (workdir / imp).exists()
+            and not (workdir / cfg).exists()
+        ):
+            return t
+        t += 1
+        if t > max(0, int(start)) + 10_000_000:
+            raise RuntimeError(
+                f"Could not allocate a free trial index under {workdir} (started at {start})."
+            )
 
 
 def _trial_config_record(
@@ -582,11 +633,17 @@ def tune(
     When ``clean_run`` is false (default), existing ``trial_*_trial_config.json`` files
     in ``workdir`` are read (matching ``tune_keys`` and metric name): those parameter
     sets are skipped, the best validation metric seeds the search, and only unseen grid
-    points are trained.
+    points are trained. New trials use the next free ``trial_NNNNNN_*`` index after the
+    maximum on disk (configs + filenames) so existing artifacts are never overwritten.
+    Under ``validation_record``, new improvements append after the highest existing
+    ``improvement_NNNN_*`` index.
 
-    When ``clean_run`` is true, ``workdir`` and ``output_dir / validation_record`` are
-    cleared (then a full search from scratch). ``workdir`` must not be cwd. Confirmation
-    rules match ``require_clean_confirmation`` / ``TUNE_CONFIRM_CLEAN``.
+    When ``clean_run`` is true, **all files and folders under** the resolved
+    ``output_dir`` are removed (including ``workdir``, ``validation_record``, prior
+    ``best_of_all_*``, final model exports, etc.), then ``workdir`` and
+    ``validation_record`` are recreated. ``output_dir`` and ``workdir`` must not equal
+    the process current working directory. Confirmation uses
+    ``require_clean_confirmation`` / ``TUNE_CONFIRM_CLEAN``.
 
     On each new best validation score, artifacts are copied under
     ``output_dir / validation_record`` as ``improvement_<n>_*.`` At the end, the overall
@@ -645,21 +702,25 @@ def tune(
 
     if clean_run:
         try:
-            if workdir.resolve() == Path.cwd().resolve():
+            cwd = Path.cwd().resolve()
+            if out_root.resolve() == cwd:
                 raise ValueError(
-                    "workdir must not be the current working directory when clean_run=True "
-                    "(output folder would be cleared). Use a dedicated subdirectory."
+                    "output_dir must not be the current working directory when "
+                    "clean_run=True (entire output directory would be cleared)."
+                )
+            if workdir.resolve() == cwd:
+                raise ValueError(
+                    "workdir must not be the current working directory when clean_run=True."
                 )
         except OSError:
             pass
-        if workdir.is_dir():
-            _confirm_clean_workdir(
-                workdir, require_confirmation=require_clean_confirmation
-            )
-            _clear_directory_contents(workdir)
+        out_root.mkdir(parents=True, exist_ok=True)
+        _confirm_clean_output_dir(
+            out_root, require_confirmation=require_clean_confirmation
+        )
+        _clear_directory_contents(out_root)
+        out_root.mkdir(parents=True, exist_ok=True)
         workdir.mkdir(parents=True, exist_ok=True)
-        if validation_record_dir.is_dir():
-            _clear_directory_contents(validation_record_dir)
         validation_record_dir.mkdir(parents=True, exist_ok=True)
     else:
         workdir.mkdir(parents=True, exist_ok=True)
@@ -678,14 +739,26 @@ def tune(
             workdir, keys, metric, log_workdir=workdir
         )
         rows.extend(loaded_rows)
-        next_trial_seq = max_trial + 1 if max_trial >= 0 else 0
+        disk_trial_max = _max_trial_index_on_disk(workdir)
+        next_trial_seq = max(
+            (max_trial + 1) if max_trial >= 0 else 0,
+            disk_trial_max + 1,
+        )
+        improvement_n = _max_improvement_index_on_disk(validation_record_dir)
         if loaded_rows:
             metric_label = metric if isinstance(metric, str) else "metric"
             _tune_log_line(
                 workdir,
                 f"[tune] resume: {len(loaded_rows)} prior trial(s) from configs; "
                 f"best validation {metric_label}={best_global:.6f}; "
-                f"next trial_index={next_trial_seq}; training only unseen parameter sets.",
+                f"next trial_index>={next_trial_seq} (disk trial max={disk_trial_max}); "
+                "training only unseen parameter sets.",
+            )
+        elif disk_trial_max >= 0 or improvement_n > 0:
+            _tune_log_line(
+                workdir,
+                f"[tune] resume: no matching trial configs; disk trial max={disk_trial_max}, "
+                f"max improvement index={improvement_n}; next trial_index>={next_trial_seq}.",
             )
 
     for round_idx in range(max_expansion_rounds + 1):
@@ -705,8 +778,8 @@ def tune(
 
         for i, delta in enumerate(new_deltas):
             params = {**base, **delta}
-            t_idx = next_trial_seq
-            next_trial_seq += 1
+            t_idx = _allocate_next_trial_index(workdir, next_trial_seq)
+            next_trial_seq = t_idx + 1
             model_file, imp_file, _cfg_name = _trial_asset_names(t_idx)
             mp = workdir / model_file
             ip = workdir / imp_file
@@ -766,10 +839,14 @@ def tune(
                     f"(trial_index={t_idx}, expansion_round={round_idx}) params={params}",
                 )
                 improvement_n += 1
-                m_dst = (
-                    validation_record_dir
-                    / f"improvement_{improvement_n:04d}_model.txt"
-                )
+                while True:
+                    m_dst = (
+                        validation_record_dir
+                        / f"improvement_{improvement_n:04d}_model.txt"
+                    )
+                    if not m_dst.exists():
+                        break
+                    improvement_n += 1
                 i_dst = (
                     validation_record_dir
                     / f"improvement_{improvement_n:04d}_feature_importance.csv"

@@ -13,8 +13,9 @@ Each trial writes under ``<output_dir>/tune_workspace/``: ``trial_<n>_model.txt`
 ``trial_<n>_feature_importance.csv``, and ``trial_<n>_trial_config.json``. By default the
 run resumes from those configs (skip completed params, continue from best metric). New
 bests are copied to ``<output_dir>/validation_record/improvement_*``. After tuning,
-``best_of_all_*`` files are written under ``<output_dir>``. Use ``--clean-run`` to wipe
-``tune_workspace`` and ``validation_record`` (confirmation if non-empty). Use
+``best_of_all_*`` files are written under ``<output_dir>``. Use ``--clean-run`` to delete
+**everything** under ``<output_dir>`` (then recreate ``tune_workspace`` and
+``validation_record``); confirmation if non-empty. Use
 ``--sample-frac`` (e.g. ``0.01``) to subsample train and validation rows for dry runs.
 """
 
@@ -54,7 +55,7 @@ from model_pipeline.tune_model_params import (
     tune,
 )
 
-DEFAULT_OUTPUT_DIR = Path("/data1/bogeng/data_output/validation_03252026")
+DEFAULT_OUTPUT_DIR = Path("/data1/bogeng/data_output/validation_03272026")
 
 
 def _json_default(obj: Any) -> Any:
@@ -74,9 +75,9 @@ def main() -> None:
         "--clean-run",
         action="store_true",
         help=(
-            "Clear tune_workspace and run validation from scratch (prompt before delete "
-            "if non-empty; non-interactive runs need TUNE_CONFIRM_CLEAN=1). "
-            "Default: resume from trial_*_trial_config.json in tune_workspace."
+            "Remove all files and folders under output_dir (BG_TUNING_OUTPUT_DIR), then "
+            "run validation from scratch (prompt if non-empty; non-interactive: "
+            "TUNE_CONFIRM_CLEAN=1). Default: resume from trial_*_trial_config.json."
         ),
     )
     parser.add_argument(
